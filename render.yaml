@@ -1,0 +1,12 @@
+services:
+  - type: cron
+    name: onfloor-daily-revenue
+    runtime: python
+    schedule: "0 13 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python daily_revenue.py
+    envVars:
+      - key: HUBSPOT_TOKEN
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false
