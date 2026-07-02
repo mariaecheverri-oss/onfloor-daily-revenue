@@ -137,6 +137,34 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         grand_count += n
     grand_label = "customer" if grand_count == 1 else "customers"
     lines.append(f"\n💰 *Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*")
+    return "\n".join(lines), grand_total
+
+
+MONTHLY_GOAL = 400_000.0
+
+
+def build_goal_progress_message(grand_total):
+    now_cst = datetime.now(CST)
+    month_label = now_cst.strftime("%B %Y")
+
+    pct = min(grand_total / MONTHLY_GOAL * 100, 100.0)
+    filled = int(pct / 5)
+    bar = "█" * filled + "░" * (20 - filled)
+    pct_display = f"{int(pct)}%"
+
+    lines = [f"🎯 *Monthly Goal Progress — {month_label}*\n"]
+
+    if grand_total >= MONTHLY_GOAL:
+        lines.append(f"{bar} {pct_display} 🔥\n")
+        lines.append(f"📈 Month-to-date: {fmt_usd(grand_total)}")
+        lines.append(f"🏁 Goal: {fmt_usd(MONTHLY_GOAL)}")
+        lines.append(f"✅ Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!")
+    else:
+        lines.append(f"{bar} {pct_display}\n")
+        lines.append(f"📈 Month-to-date: {fmt_usd(grand_total)}")
+        lines.append(f"🏁 Goal: {fmt_usd(MONTHLY_GOAL)}")
+        lines.append(f"⏳ Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}")
+
     return "\n".join(lines)
 
 
@@ -154,8 +182,8 @@ def build_open_pipeline_message(pipeline_id, stage_map, owners):
         {"propertyName": "pipeline", "operator": "EQ", "value": pipeline_id},
         {"propertyName": "dealstage", "operator": "IN", "values": open_stage_ids},
         {"propertyName": "amount", "operator": "GT", "value": "0"},
-        {"propertyName": "createdate", "operator": "GTE", "value": str(start_ms)},
-        {"propertyName": "createdate", "operator": "LTE", "value": str(end_ms)},
+        {"propertyName": "closedate", "operator": "GTE", "value": str(start_ms)},
+        {"propertyName": "closedate", "operator": "LTE", "value": str(end_ms)},
     ]
 
     deals = search_deals(filters, ["amount", "dealname", "dealstage", "hubspot_owner_id"])
@@ -199,13 +227,18 @@ def trigger():
     pipeline_id, stage_map = get_pipeline_and_stages()
     owners = get_owners()
 
-    msg1 = build_closed_revenue_message(pipeline_id, stage_map, owners)
+    msg1, grand_total = build_closed_revenue_message(pipeline_id, stage_map, owners)
     send_slack(msg1)
 
     time.sleep(2)
 
     msg2 = build_open_pipeline_message(pipeline_id, stage_map, owners)
     send_slack(msg2)
+
+    time.sleep(2)
+
+    msg3 = build_goal_progress_message(grand_total)
+    send_slack(msg3)
 
     return jsonify({"message": "Reports sent"}), 200
 
