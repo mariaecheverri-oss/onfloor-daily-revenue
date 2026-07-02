@@ -20,7 +20,6 @@ CLOSED_STAGE_LABELS = {
 }
 
 EXCLUDED_STAGE_LABELS = {
-    "🤝 READY FOR FULFILLMENT",
     "🎉 CLOSED WON (Successful Solution Delivery)",
     "❌ CLOSED LOST",
     "🧪 QC DQ CONSULT - REVIEW PILE",
