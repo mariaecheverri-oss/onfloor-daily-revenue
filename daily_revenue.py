@@ -1,3 +1,4 @@
+import calendar
 import os
 import time
 from datetime import datetime
@@ -132,11 +133,11 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         name = owners.get(owner_id, f"Owner {owner_id}")
         n = counts[owner_id]
         label = "customer" if n == 1 else "customers"
-        lines.append(f"👤 {name}: {fmt_usd(total)} — {n} {label}")
+        lines.append(f"{name}: {fmt_usd(total)} — {n} {label}")
         grand_total += total
         grand_count += n
     grand_label = "customer" if grand_count == 1 else "customers"
-    lines.append(f"\n💰 *Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*")
+    lines.append(f"\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*")
     return "\n".join(lines), grand_total
 
 
@@ -156,14 +157,14 @@ def build_goal_progress_message(grand_total):
 
     if grand_total >= MONTHLY_GOAL:
         lines.append(f"{bar} {pct_display} 🔥\n")
-        lines.append(f"📈 Month-to-date: {fmt_usd(grand_total)}")
-        lines.append(f"🏁 Goal: {fmt_usd(MONTHLY_GOAL)}")
-        lines.append(f"✅ Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!")
+        lines.append(f"Month-to-date: {fmt_usd(grand_total)}")
+        lines.append(f"Goal: {fmt_usd(MONTHLY_GOAL)}")
+        lines.append(f"Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!")
     else:
         lines.append(f"{bar} {pct_display}\n")
-        lines.append(f"📈 Month-to-date: {fmt_usd(grand_total)}")
-        lines.append(f"🏁 Goal: {fmt_usd(MONTHLY_GOAL)}")
-        lines.append(f"⏳ Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}")
+        lines.append(f"Month-to-date: {fmt_usd(grand_total)}")
+        lines.append(f"Goal: {fmt_usd(MONTHLY_GOAL)}")
+        lines.append(f"Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}")
 
     return "\n".join(lines)
 
@@ -171,9 +172,10 @@ def build_goal_progress_message(grand_total):
 def build_open_pipeline_message(pipeline_id, stage_map, owners):
     now_cst = datetime.now(CST)
     month_start = now_cst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    day_end = now_cst.replace(hour=23, minute=59, second=59, microsecond=0)
+    last_day = calendar.monthrange(now_cst.year, now_cst.month)[1]
+    month_end = now_cst.replace(day=last_day, hour=23, minute=59, second=59, microsecond=0)
     start_ms = int(month_start.timestamp() * 1000)
-    end_ms = int(day_end.timestamp() * 1000)
+    end_ms = int(month_end.timestamp() * 1000)
 
     excluded_ids = {stage_map[s] for s in EXCLUDED_STAGE_LABELS if s in stage_map}
     open_stage_ids = [sid for sid in stage_map.values() if sid not in excluded_ids]
@@ -182,8 +184,7 @@ def build_open_pipeline_message(pipeline_id, stage_map, owners):
         {"propertyName": "pipeline", "operator": "EQ", "value": pipeline_id},
         {"propertyName": "dealstage", "operator": "IN", "values": open_stage_ids},
         {"propertyName": "amount", "operator": "GT", "value": "0"},
-        {"propertyName": "closedate", "operator": "GTE", "value": str(start_ms)},
-        {"propertyName": "closedate", "operator": "LTE", "value": str(end_ms)},
+        {"propertyName": "closedate", "operator": "BETWEEN", "value": str(start_ms), "highValue": str(end_ms)},
     ]
 
     deals = search_deals(filters, ["amount", "dealname", "dealstage", "hubspot_owner_id"])
@@ -201,14 +202,14 @@ def build_open_pipeline_message(pipeline_id, stage_map, owners):
         if val > 0:
             totals[owner_id] = totals.get(owner_id, 0.0) + val
 
-    date_label = now_cst.strftime("%B %-d, %Y")
-    lines = [f"🔭 *Open Pipeline Value — {date_label}*\n"]
+    month_label = now_cst.strftime("%B %Y")
+    lines = [f"🔭 *Open Pipeline Value — {month_label}*\n"]
     grand_total = 0.0
     for owner_id, total in sorted(totals.items(), key=lambda x: -x[1]):
         name = owners.get(owner_id, f"Owner {owner_id}")
-        lines.append(f"👤 {name}: {fmt_usd(total)}")
+        lines.append(f"{name}: {fmt_usd(total)}")
         grand_total += total
-    lines.append(f"\n📦 *Total Open: {fmt_usd(grand_total)}*")
+    lines.append(f"\n*Total Open: {fmt_usd(grand_total)}*")
     return "\n".join(lines)
 
 
