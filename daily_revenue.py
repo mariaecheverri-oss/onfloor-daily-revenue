@@ -174,7 +174,8 @@ def build_open_pipeline_message(pipeline_id, stage_map, owners):
 @app.route("/trigger", methods=["POST"])
 def trigger():
     secret = os.environ.get("TRIGGER_SECRET", "")
-    incoming = request.headers.get("X-Trigger-Secret", "")
+    body = request.get_json(silent=True) or {}
+    incoming = body.get("X-Trigger-Secret", "")
     if not incoming or incoming != secret:
         return jsonify({"error": "Unauthorized"}), 401
 
