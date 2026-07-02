@@ -12,8 +12,9 @@ CST = pytz.timezone("America/Chicago")
 HUBSPOT_BASE = "https://api.hubapi.com"
 PIPELINE_NAME = "ONFLOOR - NEW BUSINESS"
 
+ALLOWED_OWNER_NAMES = {"Agustin Garcia", "Travis McCutchen", "Maxwell Goldberg"}
+
 CLOSED_STAGE_LABELS = {
-    "🤝 READY FOR FULFILLMENT",
     "🎉 CLOSED WON (Successful Solution Delivery)",
 }
 
@@ -49,7 +50,8 @@ def get_owners():
     owners = {}
     for o in resp.json().get("results", []):
         name = f"{o.get('firstName', '')} {o.get('lastName', '')}".strip()
-        owners[str(o["id"])] = name or f"Owner {o['id']}"
+        if name in ALLOWED_OWNER_NAMES:
+            owners[str(o["id"])] = name
     return owners
 
 
@@ -113,6 +115,8 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
     for deal in deals:
         props = deal.get("properties", {})
         owner_id = str(props.get("hubspot_owner_id") or "")
+        if owner_id not in owners:
+            continue
         try:
             val = float(props.get("amount") or 0)
         except (ValueError, TypeError):
@@ -137,6 +141,12 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
 
 
 def build_open_pipeline_message(pipeline_id, stage_map, owners):
+    now_cst = datetime.now(CST)
+    month_start = now_cst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    day_end = now_cst.replace(hour=23, minute=59, second=59, microsecond=0)
+    start_ms = int(month_start.timestamp() * 1000)
+    end_ms = int(day_end.timestamp() * 1000)
+
     excluded_ids = {stage_map[s] for s in EXCLUDED_STAGE_LABELS if s in stage_map}
     open_stage_ids = [sid for sid in stage_map.values() if sid not in excluded_ids]
 
@@ -144,6 +154,8 @@ def build_open_pipeline_message(pipeline_id, stage_map, owners):
         {"propertyName": "pipeline", "operator": "EQ", "value": pipeline_id},
         {"propertyName": "dealstage", "operator": "IN", "values": open_stage_ids},
         {"propertyName": "amount", "operator": "GT", "value": "0"},
+        {"propertyName": "createdate", "operator": "GTE", "value": str(start_ms)},
+        {"propertyName": "createdate", "operator": "LTE", "value": str(end_ms)},
     ]
 
     deals = search_deals(filters, ["amount", "dealname", "dealstage", "hubspot_owner_id"])
@@ -152,6 +164,8 @@ def build_open_pipeline_message(pipeline_id, stage_map, owners):
     for deal in deals:
         props = deal.get("properties", {})
         owner_id = str(props.get("hubspot_owner_id") or "")
+        if owner_id not in owners:
+            continue
         try:
             val = float(props.get("amount") or 0)
         except (ValueError, TypeError):
@@ -159,7 +173,6 @@ def build_open_pipeline_message(pipeline_id, stage_map, owners):
         if val > 0:
             totals[owner_id] = totals.get(owner_id, 0.0) + val
 
-    now_cst = datetime.now(CST)
     date_label = now_cst.strftime("%B %-d, %Y")
     lines = [f"🔭 *Open Pipeline Value — {date_label}*\n"]
     grand_total = 0.0
