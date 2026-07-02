@@ -13,7 +13,7 @@ CST = pytz.timezone("America/Chicago")
 HUBSPOT_BASE = "https://api.hubapi.com"
 PIPELINE_NAME = "ONFLOOR - NEW BUSINESS"
 
-ALLOWED_OWNER_NAMES = {"Agustin Garcia", "Travis McCutchen", "Maxwell Goldberg"}
+ALLOWED_OWNER_NAMES = {"agustin garcia", "travis mccutchen", "maxwell goldberg"}
 
 CLOSED_STAGE_LABELS = {
     "🎉 CLOSED WON (Successful Solution Delivery)",
@@ -50,7 +50,7 @@ def get_owners():
     owners = {}
     for o in resp.json().get("results", []):
         name = f"{o.get('firstName', '')} {o.get('lastName', '')}".strip()
-        if name in ALLOWED_OWNER_NAMES:
+        if name.lower() in ALLOWED_OWNER_NAMES:
             owners[str(o["id"])] = name
     return owners
 
