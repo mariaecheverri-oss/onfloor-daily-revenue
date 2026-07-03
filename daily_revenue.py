@@ -152,7 +152,8 @@ MONTHLY_GOAL = 400_000.0
 def make_bar(amount):
     pct = min(amount / MONTHLY_GOAL * 100, 100.0)
     filled = int(pct / 5)
-    return ":large_green_circle:" * filled + ":white_circle:" * (20 - filled), int(pct)
+    segments = [":large_green_circle:"] * filled + [":white_circle:"] * (20 - filled)
+    return " ".join(segments), int(pct)
 
 
 def build_goal_progress_message(grand_total, named_totals):
