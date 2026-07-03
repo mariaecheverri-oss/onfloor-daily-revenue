@@ -181,7 +181,6 @@ def build_goal_progress_message(grand_total, grand_count, named_totals, named_co
     blocks = [_text_block(f"🎯 *Monthly Goal Progress — {month_label}*")]
 
     # --- Revenue per rep ---
-    blocks.append(_text_block("*Revenue*"))
     for name, amount in named_totals:
         display_pct = int(round(amount / MONTHLY_GOAL * 100))
         blocks.append(_text_block(f"{name}: {fmt_usd(amount)} ({display_pct}%)"))
@@ -195,24 +194,6 @@ def build_goal_progress_message(grand_total, grand_count, named_totals, named_co
         blocks.append(_text_block(f"Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!"))
     else:
         blocks.append(_text_block(f"Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}"))
-
-    blocks.append(_divider())
-
-    # --- Deals per rep ---
-    blocks.append(_text_block("*Deals*"))
-    for name, count in named_counts:
-        display_pct = int(round(count / DEALS_GOAL * 100))
-        blocks.append(_text_block(f"{name}: {count} ({display_pct}%)"))
-
-    # --- Deals total ---
-    deals_display_pct = int(round(grand_count / DEALS_GOAL * 100))
-    blocks.append(_text_block(f"Total: {grand_count} / {DEALS_GOAL} deals ({deals_display_pct}%)"))
-    if grand_count >= DEALS_GOAL:
-        blocks.append(_text_block(f"Deals goal exceeded by {grand_count - DEALS_GOAL}!"))
-    else:
-        remaining = DEALS_GOAL - grand_count
-        deal_label = "deal" if remaining == 1 else "deals"
-        blocks.append(_text_block(f"Still needed: {remaining} {deal_label}"))
 
     return blocks
 
