@@ -131,8 +131,14 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         totals[owner_id] = totals.get(owner_id, 0.0) + val
         counts[owner_id] = counts.get(owner_id, 0) + 1
 
+    # Ensure all allowed owners appear even with $0 / 0 deals
+    for oid in owners:
+        totals.setdefault(oid, 0.0)
+        counts.setdefault(oid, 0)
+
     month_label = now_cst.strftime("%B %Y")
-    lines = [f"📊 *Monthly Closed Revenue — {month_label}*\n"]
+    lines = [f"📊 *New Business Revenue — {month_label}*\n"]
+    lines.append(f"🏁 Revenue Goal: {fmt_usd(MONTHLY_GOAL)} | Deals Goal: {DEALS_GOAL}\n")
     grand_total = 0.0
     grand_count = 0
     for owner_id, total in sorted(totals.items(), key=lambda x: -x[1]):
@@ -144,7 +150,6 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         grand_count += n
     grand_label = "customer" if grand_count == 1 else "customers"
     lines.append(f"\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*")
-    lines.append(f"\n🏁 Revenue Goal: {fmt_usd(MONTHLY_GOAL)} | Deals Goal: {DEALS_GOAL}")
     # named_totals / named_counts: sorted by revenue desc, for Message 3
     sorted_oids = sorted(totals, key=lambda x: -totals[x])
     named_totals = [(owners[oid], totals[oid]) for oid in sorted_oids if oid in owners]
