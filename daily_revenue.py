@@ -144,7 +144,7 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         grand_count += n
     grand_label = "customer" if grand_count == 1 else "customers"
     lines.append(f"\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*")
-    lines.append(f"🏁 Revenue Goal: {fmt_usd(MONTHLY_GOAL)} | Deals Goal: {DEALS_GOAL}")
+    lines.append(f"\n🏁 Revenue Goal: {fmt_usd(MONTHLY_GOAL)} | Deals Goal: {DEALS_GOAL}")
     # named_totals / named_counts: sorted by revenue desc, for Message 3
     sorted_oids = sorted(totals, key=lambda x: -totals[x])
     named_totals = [(owners[oid], totals[oid]) for oid in sorted_oids if oid in owners]
@@ -205,10 +205,8 @@ def build_goal_progress_message(grand_total, grand_count, named_totals, named_co
         blocks.append(_text_block(f"{name}: {count} ({display_pct}%)"))
 
     # --- Deals total ---
-    deals_pct = _bar_img_pct(grand_count, DEALS_GOAL) if grand_count > 0 else 1
     deals_display_pct = int(round(grand_count / DEALS_GOAL * 100))
     blocks.append(_text_block(f"Total: {grand_count} / {DEALS_GOAL} deals ({deals_display_pct}%)"))
-    blocks.append(_image_block(deals_pct))
     if grand_count >= DEALS_GOAL:
         blocks.append(_text_block(f"Deals goal exceeded by {grand_count - DEALS_GOAL}!"))
     else:
