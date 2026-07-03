@@ -137,32 +137,44 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         grand_count += n
     grand_label = "customer" if grand_count == 1 else "customers"
     lines.append(f"\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*")
-    return "\n".join(lines), grand_total
+    # named_totals: list of (name, amount) sorted by amount desc, for Message 3
+    named_totals = [
+        (owners[oid], totals[oid])
+        for oid in sorted(totals, key=lambda x: -totals[x])
+        if oid in owners
+    ]
+    return "\n".join(lines), grand_total, named_totals
 
 
 MONTHLY_GOAL = 400_000.0
 
 
-def build_goal_progress_message(grand_total):
+def make_bar(amount):
+    pct = min(amount / MONTHLY_GOAL * 100, 100.0)
+    filled = int(pct / 5)
+    return "█" * filled + "░" * (20 - filled), int(pct)
+
+
+def build_goal_progress_message(grand_total, named_totals):
     now_cst = datetime.now(CST)
     month_label = now_cst.strftime("%B %Y")
 
-    pct = min(grand_total / MONTHLY_GOAL * 100, 100.0)
-    filled = int(pct / 5)
-    bar = "█" * filled + "░" * (20 - filled)
-    pct_display = f"{int(pct)}%"
-
     lines = [f"🎯 *Monthly Goal Progress — {month_label}*\n"]
 
+    for name, amount in named_totals:
+        bar, pct = make_bar(amount)
+        lines.append(name)
+        lines.append(f"{bar} {pct}% — {fmt_usd(amount)}\n")
+
+    lines.append("─────────────────────")
+    lines.append(f"Total: {fmt_usd(grand_total)} / {fmt_usd(MONTHLY_GOAL)}")
+
+    team_bar, team_pct = make_bar(grand_total)
+    lines.append(f"{team_bar} {team_pct}%")
+
     if grand_total >= MONTHLY_GOAL:
-        lines.append(f"{bar} {pct_display} 🔥\n")
-        lines.append(f"Month-to-date: {fmt_usd(grand_total)}")
-        lines.append(f"Goal: {fmt_usd(MONTHLY_GOAL)}")
         lines.append(f"Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!")
     else:
-        lines.append(f"{bar} {pct_display}\n")
-        lines.append(f"Month-to-date: {fmt_usd(grand_total)}")
-        lines.append(f"Goal: {fmt_usd(MONTHLY_GOAL)}")
         lines.append(f"Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}")
 
     return "\n".join(lines)
@@ -227,7 +239,7 @@ def trigger():
     pipeline_id, stage_map = get_pipeline_and_stages()
     owners = get_owners()
 
-    msg1, grand_total = build_closed_revenue_message(pipeline_id, stage_map, owners)
+    msg1, grand_total, named_totals = build_closed_revenue_message(pipeline_id, stage_map, owners)
     send_slack(msg1)
 
     time.sleep(2)
@@ -237,7 +249,7 @@ def trigger():
 
     time.sleep(2)
 
-    msg3 = build_goal_progress_message(grand_total)
+    msg3 = build_goal_progress_message(grand_total, named_totals)
     send_slack(msg3)
 
     return jsonify({"message": "Reports sent"}), 200
