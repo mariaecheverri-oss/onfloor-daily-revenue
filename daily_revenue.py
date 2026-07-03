@@ -91,6 +91,13 @@ def send_slack(text):
     resp.raise_for_status()
 
 
+def send_slack_blocks(blocks):
+    resp = requests.post(
+        os.environ["SLACK_WEBHOOK_URL"], json={"blocks": blocks}
+    )
+    resp.raise_for_status()
+
+
 def build_closed_revenue_message(pipeline_id, stage_map, owners):
     now_cst = datetime.now(CST)
     month_start = now_cst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -137,46 +144,48 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         grand_count += n
     grand_label = "customer" if grand_count == 1 else "customers"
     lines.append(f"\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*")
-    # named_totals: list of (name, amount) sorted by amount desc, for Message 3
-    named_totals = [
-        (owners[oid], totals[oid])
-        for oid in sorted(totals, key=lambda x: -totals[x])
-        if oid in owners
-    ]
-    return "\n".join(lines), grand_total, named_totals
+    # named_totals / named_counts: sorted by revenue desc, for Message 3
+    sorted_oids = sorted(totals, key=lambda x: -totals[x])
+    named_totals = [(owners[oid], totals[oid]) for oid in sorted_oids if oid in owners]
+    named_counts = [(owners[oid], counts.get(oid, 0)) for oid in sorted_oids if oid in owners]
+    return "\n".join(lines), grand_total, grand_count, named_totals, named_counts
 
 
-MONTHLY_GOAL = 400_000.0
-
-
-def make_bar(amount):
-    pct = min(amount / MONTHLY_GOAL * 100, 100.0)
-    filled = int(pct / 5)
-    segments = [":large_green_circle:"] * filled + [":white_circle:"] * (20 - filled)
-    return " ".join(segments), int(pct)
-
-
-def build_goal_progress_message(grand_total, named_totals):
+MONTHLY_GOAL = 250_000.0
+DEALS_GOAL = 15
+def build_goal_progress_message(grand_total, grand_count, named_totals, named_counts):
     now_cst = datetime.now(CST)
     month_label = now_cst.strftime("%B %Y")
 
     lines = [f"🎯 *Monthly Goal Progress — {month_label}*\n"]
 
+    # --- Revenue section ---
+    lines.append("*Revenue*")
     for name, amount in named_totals:
-        bar, pct = make_bar(amount)
-        lines.append(name)
-        lines.append(f"{bar} {pct}% — {fmt_usd(amount)}\n")
-
-    lines.append("─────────────────────")
-    lines.append(f"Total: {fmt_usd(grand_total)} / {fmt_usd(MONTHLY_GOAL)}")
-
-    team_bar, team_pct = make_bar(grand_total)
-    lines.append(f"{team_bar} {team_pct}%")
-
+        lines.append(f"{name}: {fmt_usd(amount)}")
+    lines.append("")
+    rev_pct = int(round(grand_total / MONTHLY_GOAL * 100))
+    lines.append(f"Total: {fmt_usd(grand_total)} / {fmt_usd(MONTHLY_GOAL)} ({rev_pct}%)")
     if grand_total >= MONTHLY_GOAL:
         lines.append(f"Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!")
     else:
         lines.append(f"Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}")
+
+    lines.append("")
+
+    # --- Deals section ---
+    lines.append("*Deals*")
+    for name, count in named_counts:
+        lines.append(f"{name}: {count}")
+    lines.append("")
+    deals_pct = int(round(grand_count / DEALS_GOAL * 100))
+    lines.append(f"Total: {grand_count} / {DEALS_GOAL} deals ({deals_pct}%)")
+    if grand_count >= DEALS_GOAL:
+        lines.append(f"Deals goal exceeded by {grand_count - DEALS_GOAL}!")
+    else:
+        remaining = DEALS_GOAL - grand_count
+        deal_label = "deal" if remaining == 1 else "deals"
+        lines.append(f"Still needed: {remaining} {deal_label}")
 
     return "\n".join(lines)
 
@@ -240,7 +249,7 @@ def trigger():
     pipeline_id, stage_map = get_pipeline_and_stages()
     owners = get_owners()
 
-    msg1, grand_total, named_totals = build_closed_revenue_message(pipeline_id, stage_map, owners)
+    msg1, grand_total, grand_count, named_totals, named_counts = build_closed_revenue_message(pipeline_id, stage_map, owners)
     send_slack(msg1)
 
     time.sleep(2)
@@ -250,7 +259,7 @@ def trigger():
 
     time.sleep(2)
 
-    msg3 = build_goal_progress_message(grand_total, named_totals)
+    msg3 = build_goal_progress_message(grand_total, grand_count, named_totals, named_counts)
     send_slack(msg3)
 
     return jsonify({"message": "Reports sent"}), 200
