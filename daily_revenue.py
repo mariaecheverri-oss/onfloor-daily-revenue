@@ -156,7 +156,7 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         + f"\n\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*"
     )
 
-    rev_pct = _bar_img_pct(grand_total, MONTHLY_GOAL) if grand_total > 0 else 1
+    rev_pct = _bar_img_pct(grand_total, MONTHLY_GOAL)
     blocks = [
         _text_block(header),
         _image_block(rev_pct),
@@ -179,7 +179,7 @@ BAR_BASE_URL = "https://raw.githubusercontent.com/mariaecheverri-oss/progress-ba
 
 
 def _bar_img_pct(value, goal):
-    return max(1, min(100, int(round(value / goal * 100))))
+    return max(0, min(100, int(round(value / goal * 100))))
 
 
 def _text_block(text):
@@ -207,7 +207,7 @@ def build_goal_progress_message(grand_total, grand_count, named_totals, named_co
         blocks.append(_text_block(f"{name}: {fmt_usd(amount)} ({display_pct}%)"))
 
     # --- Revenue total ---
-    rev_pct = _bar_img_pct(grand_total, MONTHLY_GOAL) if grand_total > 0 else 1
+    rev_pct = _bar_img_pct(grand_total, MONTHLY_GOAL)
     rev_display_pct = int(round(grand_total / MONTHLY_GOAL * 100))
     blocks.append(_text_block(f"Total: {fmt_usd(grand_total)} / {fmt_usd(MONTHLY_GOAL)} ({rev_display_pct}%)"))
     blocks.append(_image_block(rev_pct))
