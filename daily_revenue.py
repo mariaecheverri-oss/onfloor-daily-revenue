@@ -137,24 +137,40 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
         counts.setdefault(oid, 0)
 
     month_label = now_cst.strftime("%B %Y")
-    lines = [f"📊 *New Business Revenue — {month_label}*\n"]
-    lines.append(f"🏁 Revenue Goal: {fmt_usd(MONTHLY_GOAL)} | Deals Goal: {DEALS_GOAL}\n")
     grand_total = 0.0
     grand_count = 0
+    rep_lines = []
     for owner_id, total in sorted(totals.items(), key=lambda x: -x[1]):
         name = owners.get(owner_id, f"Owner {owner_id}")
         n = counts[owner_id]
         label = "customer" if n == 1 else "customers"
-        lines.append(f"{name}: {fmt_usd(total)} — {n} {label}")
+        rep_lines.append(f"{name}: {fmt_usd(total)} — {n} {label}")
         grand_total += total
         grand_count += n
     grand_label = "customer" if grand_count == 1 else "customers"
-    lines.append(f"\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*")
-    # named_totals / named_counts: sorted by revenue desc, for Message 3
+
+    header = (
+        f"📊 *New Business Revenue — {month_label}*\n\n"
+        f"🏁 Revenue Goal: {fmt_usd(MONTHLY_GOAL)} | Deals Goal: {DEALS_GOAL}\n\n"
+        + "\n".join(rep_lines)
+        + f"\n\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*"
+    )
+
+    rev_pct = _bar_img_pct(grand_total, MONTHLY_GOAL) if grand_total > 0 else 1
+    blocks = [
+        _text_block(header),
+        _image_block(rev_pct),
+    ]
+    if grand_total >= MONTHLY_GOAL:
+        blocks.append(_text_block(f"Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!"))
+    else:
+        blocks.append(_text_block(f"Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}"))
+
+    # named_totals / named_counts: sorted by revenue desc, for future use
     sorted_oids = sorted(totals, key=lambda x: -totals[x])
     named_totals = [(owners[oid], totals[oid]) for oid in sorted_oids if oid in owners]
     named_counts = [(owners[oid], counts.get(oid, 0)) for oid in sorted_oids if oid in owners]
-    return "\n".join(lines), grand_total, grand_count, named_totals, named_counts
+    return blocks, grand_total, grand_count, named_totals, named_counts
 
 
 MONTHLY_GOAL = 250_000.0
@@ -262,8 +278,8 @@ def trigger():
     pipeline_id, stage_map = get_pipeline_and_stages()
     owners = get_owners()
 
-    msg1, grand_total, grand_count, named_totals, named_counts = build_closed_revenue_message(pipeline_id, stage_map, owners)
-    send_slack(msg1)
+    blocks1, grand_total, grand_count, named_totals, named_counts = build_closed_revenue_message(pipeline_id, stage_map, owners)
+    send_slack_blocks(blocks1)
 
     return jsonify({"message": "Reports sent"}), 200
 
