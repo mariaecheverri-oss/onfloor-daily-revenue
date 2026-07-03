@@ -153,41 +153,73 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
 
 MONTHLY_GOAL = 250_000.0
 DEALS_GOAL = 15
+BAR_BASE_URL = "https://raw.githubusercontent.com/mariaecheverri-oss/progress-bars/main/bars"
+
+
+def _bar_img_pct(value, goal):
+    return max(1, min(100, int(round(value / goal * 100))))
+
+
+def _text_block(text):
+    return {"type": "section", "text": {"type": "mrkdwn", "text": text}}
+
+
+def _image_block(pct):
+    url = f"{BAR_BASE_URL}/bar_{pct}.png"
+    return {"type": "image", "image_url": url, "alt_text": f"{pct}%"}
+
+
+def _divider():
+    return {"type": "divider"}
+
+
 def build_goal_progress_message(grand_total, grand_count, named_totals, named_counts):
     now_cst = datetime.now(CST)
     month_label = now_cst.strftime("%B %Y")
 
-    lines = [f"🎯 *Monthly Goal Progress — {month_label}*\n"]
+    blocks = [_text_block(f"🎯 *Monthly Goal Progress — {month_label}*")]
 
-    # --- Revenue section ---
-    lines.append("*Revenue*")
+    # --- Revenue per rep ---
+    blocks.append(_text_block("*Revenue*"))
     for name, amount in named_totals:
-        lines.append(f"{name}: {fmt_usd(amount)}")
-    lines.append("")
-    rev_pct = int(round(grand_total / MONTHLY_GOAL * 100))
-    lines.append(f"Total: {fmt_usd(grand_total)} / {fmt_usd(MONTHLY_GOAL)} ({rev_pct}%)")
+        pct = _bar_img_pct(amount, MONTHLY_GOAL) if amount > 0 else 1
+        display_pct = int(round(amount / MONTHLY_GOAL * 100))
+        blocks.append(_text_block(f"{name}: {fmt_usd(amount)} ({display_pct}%)"))
+        blocks.append(_image_block(pct))
+
+    # --- Revenue total ---
+    rev_pct = _bar_img_pct(grand_total, MONTHLY_GOAL) if grand_total > 0 else 1
+    rev_display_pct = int(round(grand_total / MONTHLY_GOAL * 100))
+    blocks.append(_text_block(f"Total: {fmt_usd(grand_total)} / {fmt_usd(MONTHLY_GOAL)} ({rev_display_pct}%)"))
+    blocks.append(_image_block(rev_pct))
     if grand_total >= MONTHLY_GOAL:
-        lines.append(f"Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!")
+        blocks.append(_text_block(f"Goal exceeded by {fmt_usd(grand_total - MONTHLY_GOAL)}!"))
     else:
-        lines.append(f"Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}")
+        blocks.append(_text_block(f"Still needed: {fmt_usd(MONTHLY_GOAL - grand_total)}"))
 
-    lines.append("")
+    blocks.append(_divider())
 
-    # --- Deals section ---
-    lines.append("*Deals*")
+    # --- Deals per rep ---
+    blocks.append(_text_block("*Deals*"))
     for name, count in named_counts:
-        lines.append(f"{name}: {count}")
-    lines.append("")
-    deals_pct = int(round(grand_count / DEALS_GOAL * 100))
-    lines.append(f"Total: {grand_count} / {DEALS_GOAL} deals ({deals_pct}%)")
+        pct = _bar_img_pct(count, DEALS_GOAL) if count > 0 else 1
+        display_pct = int(round(count / DEALS_GOAL * 100))
+        blocks.append(_text_block(f"{name}: {count} ({display_pct}%)"))
+        blocks.append(_image_block(pct))
+
+    # --- Deals total ---
+    deals_pct = _bar_img_pct(grand_count, DEALS_GOAL) if grand_count > 0 else 1
+    deals_display_pct = int(round(grand_count / DEALS_GOAL * 100))
+    blocks.append(_text_block(f"Total: {grand_count} / {DEALS_GOAL} deals ({deals_display_pct}%)"))
+    blocks.append(_image_block(deals_pct))
     if grand_count >= DEALS_GOAL:
-        lines.append(f"Deals goal exceeded by {grand_count - DEALS_GOAL}!")
+        blocks.append(_text_block(f"Deals goal exceeded by {grand_count - DEALS_GOAL}!"))
     else:
         remaining = DEALS_GOAL - grand_count
         deal_label = "deal" if remaining == 1 else "deals"
-        lines.append(f"Still needed: {remaining} {deal_label}")
+        blocks.append(_text_block(f"Still needed: {remaining} {deal_label}"))
 
-    return "\n".join(lines)
+    return blocks
 
 
 def build_open_pipeline_message(pipeline_id, stage_map, owners):
@@ -254,13 +286,8 @@ def trigger():
 
     time.sleep(2)
 
-    msg2 = build_open_pipeline_message(pipeline_id, stage_map, owners)
-    send_slack(msg2)
-
-    time.sleep(2)
-
-    msg3 = build_goal_progress_message(grand_total, grand_count, named_totals, named_counts)
-    send_slack(msg3)
+    blocks3 = build_goal_progress_message(grand_total, grand_count, named_totals, named_counts)
+    send_slack_blocks(blocks3)
 
     return jsonify({"message": "Reports sent"}), 200
 
