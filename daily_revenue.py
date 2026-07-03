@@ -265,11 +265,6 @@ def trigger():
     msg1, grand_total, grand_count, named_totals, named_counts = build_closed_revenue_message(pipeline_id, stage_map, owners)
     send_slack(msg1)
 
-    time.sleep(2)
-
-    blocks3 = build_goal_progress_message(grand_total, grand_count, named_totals, named_counts)
-    send_slack_blocks(blocks3)
-
     return jsonify({"message": "Reports sent"}), 200
 
 
