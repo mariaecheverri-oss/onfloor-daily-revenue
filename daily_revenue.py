@@ -150,7 +150,7 @@ def build_closed_revenue_message(pipeline_id, stage_map, owners):
     grand_label = "customer" if grand_count == 1 else "customers"
 
     header = (
-        f"📊 *New Business Revenue — {month_label}*\n\n"
+        f"*New Business Revenue — {month_label}*\n\n"
         f"🏁 Revenue Goal: {fmt_usd(MONTHLY_GOAL)} | Deals Goal: {DEALS_GOAL}\n\n"
         + "\n".join(rep_lines)
         + f"\n\n*Total: {fmt_usd(grand_total)} — {grand_count} {grand_label}*"
